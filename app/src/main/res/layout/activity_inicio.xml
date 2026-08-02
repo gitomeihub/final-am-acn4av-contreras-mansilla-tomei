@@ -115,6 +115,17 @@
             android:textColor="@color/barber_color_texto"
             android:textSize="17sp" />
 
+        <Button
+            android:id="@+id/btnCerrarSesion"
+            android:layout_width="match_parent"
+            android:layout_height="58dp"
+            android:layout_marginTop="14dp"
+            android:backgroundTint="#8B0000"
+            android:text="Cerrar sesión"
+            android:textAllCaps="false"
+            android:textColor="@color/barber_color_texto"
+            android:textSize="17sp" />
+
         <!-- Texto final informativo -->
         <TextView
             android:id="@+id/txtFooterInicio"

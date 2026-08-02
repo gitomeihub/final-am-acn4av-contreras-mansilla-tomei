@@ -1,7 +1,6 @@
 package com.example.barberia;
 
 import android.content.Intent;
-import android.content.SharedPreferences;
 import android.graphics.Color;
 import android.os.Bundle;
 import android.view.View;
@@ -12,32 +11,28 @@ import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
 
-import org.json.JSONArray;
-import org.json.JSONException;
-import org.json.JSONObject;
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.firestore.FirebaseFirestore;
+import com.google.firebase.firestore.QueryDocumentSnapshot;
 
 public class MisTurnosActivity extends AppCompatActivity {
 
-    /*
-     * Estos nombres deben coincidir con los utilizados
-     * en ResumenTurnoActivity para recuperar los turnos guardados.
-     */
-    private static final String PREFS_NAME = "barberia_prefs";
-    private static final String KEY_TURNOS = "turnos_guardados";
-
-    // Elementos que se modifican según haya o no turnos guardados.
     private LinearLayout layoutEstadoVacio;
     private LinearLayout layoutTurnosDinamico;
     private TextView txtTituloListaTurnos;
+
+    private FirebaseAuth auth;
+    private FirebaseFirestore db;
+
+    private String uidUsuarioActual = "";
+    private boolean esAdmin = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        // Vincula esta activity con el layout activity_mis_turnos.xml.
         setContentView(R.layout.activity_mis_turnos);
 
-        // Referencias a los elementos definidos en el XML.
         Button btnVolverInicio =
                 findViewById(R.id.btnVolverInicioMisTurnos);
 
@@ -50,17 +45,25 @@ public class MisTurnosActivity extends AppCompatActivity {
         txtTituloListaTurnos =
                 findViewById(R.id.txtTituloListaTurnos);
 
-        // Carga todos los turnos guardados localmente.
-        cargarTurnosGuardados();
+        auth = FirebaseAuth.getInstance();
+        db = FirebaseFirestore.getInstance();
 
-        /*
-         * Regresa al inicio sin acumular pantallas repetidas.
-         */
+        verificarRolYCargarTurnos();
+
         btnVolverInicio.setOnClickListener(v -> {
-            Intent intentInicio = new Intent(
-                    MisTurnosActivity.this,
-                    InicioActivity.class
-            );
+            Intent intentInicio;
+
+            if (esAdmin) {
+                intentInicio = new Intent(
+                        MisTurnosActivity.this,
+                        AdminActivity.class
+                );
+            } else {
+                intentInicio = new Intent(
+                        MisTurnosActivity.this,
+                        InicioActivity.class
+                );
+            }
 
             intentInicio.addFlags(
                     Intent.FLAG_ACTIVITY_CLEAR_TOP
@@ -72,113 +75,174 @@ public class MisTurnosActivity extends AppCompatActivity {
         });
     }
 
-    /*
-     * Recupera los turnos desde SharedPreferences y crea
-     * una tarjeta dinámica para cada reserva encontrada.
-     */
-    private void cargarTurnosGuardados() {
-        SharedPreferences preferencias = getSharedPreferences(
-                PREFS_NAME,
-                MODE_PRIVATE
-        );
-
-        String turnosJson = preferencias.getString(
-                KEY_TURNOS,
-                "[]"
-        );
-
-        // Evita duplicar tarjetas al actualizar la pantalla.
-        layoutTurnosDinamico.removeAllViews();
-
-        try {
-            JSONArray listaTurnos = new JSONArray(turnosJson);
-
-            /*
-             * Si no hay turnos, se muestra el estado vacío.
-             */
-            if (listaTurnos.length() == 0) {
-                layoutEstadoVacio.setVisibility(View.VISIBLE);
-                txtTituloListaTurnos.setVisibility(View.GONE);
-                return;
-            }
-
-            // Si hay reservas, se muestra el listado.
-            layoutEstadoVacio.setVisibility(View.GONE);
-            txtTituloListaTurnos.setVisibility(View.VISIBLE);
-
-            for (int i = 0; i < listaTurnos.length(); i++) {
-                JSONObject turno = listaTurnos.getJSONObject(i);
-
-                /*
-                 * optString permite que también se puedan leer
-                 * turnos viejos que se hubieran guardado antes
-                 * de agregar datos del cliente o medio de pago.
-                 */
-                String nombreCliente = turno.optString(
-                        "nombreCliente",
-                        "Cliente no informado"
-                );
-
-                String dniCliente = turno.optString(
-                        "dniCliente",
-                        "-"
-                );
-
-                String telefonoCliente = turno.optString(
-                        "telefonoCliente",
-                        "-"
-                );
-
-                String servicio = turno.optString("servicio", "");
-                String precio = turno.optString("precio", "");
-                String fecha = turno.optString("fecha", "");
-                String horario = turno.optString("horario", "");
-
-                /*
-                 * Recupera el medio de pago.
-                 * Los turnos creados antes de esta mejora mostrarán
-                 * "No informado" en lugar de romper la app.
-                 */
-                String medioPago = turno.optString(
-                        "medioPago",
-                        "No informado"
-                );
-
-                /*
-                 * Se conserva el índice del turno para poder eliminar
-                 * exactamente la reserva seleccionada.
-                 */
-                int indiceTurno = i;
-
-                agregarTarjetaTurno(
-                        nombreCliente,
-                        dniCliente,
-                        telefonoCliente,
-                        servicio,
-                        precio,
-                        fecha,
-                        horario,
-                        medioPago,
-                        indiceTurno
-                );
-            }
-
-        } catch (JSONException e) {
-            layoutEstadoVacio.setVisibility(View.VISIBLE);
-            txtTituloListaTurnos.setVisibility(View.GONE);
-
+    private void verificarRolYCargarTurnos() {
+        if (auth.getCurrentUser() == null) {
             Toast.makeText(
                     this,
-                    "No se pudieron cargar los turnos guardados.",
+                    "Tenés que iniciar sesión para ver tus turnos.",
                     Toast.LENGTH_LONG
             ).show();
+
+            Intent intentLogin = new Intent(
+                    MisTurnosActivity.this,
+                    LoginActivity.class
+            );
+
+            startActivity(intentLogin);
+            finish();
+
+            return;
+        }
+
+        uidUsuarioActual = auth.getCurrentUser().getUid();
+
+        db.collection("usuarios")
+                .document(uidUsuarioActual)
+                .get()
+                .addOnSuccessListener(documentSnapshot -> {
+                    if (documentSnapshot.exists()) {
+                        String rol = documentSnapshot.getString("rol");
+
+                        esAdmin = "admin".equals(rol);
+
+                        if (esAdmin) {
+                            txtTituloListaTurnos.setText("TODOS LOS TURNOS");
+                        } else {
+                            txtTituloListaTurnos.setText("PRÓXIMAS RESERVAS");
+                        }
+
+                        cargarTurnosDesdeFirestore();
+                    } else {
+                        Toast.makeText(
+                                this,
+                                "No se encontró el perfil del usuario.",
+                                Toast.LENGTH_LONG
+                        ).show();
+                    }
+                })
+                .addOnFailureListener(e -> {
+                    Toast.makeText(
+                            this,
+                            "No se pudo verificar el rol del usuario.",
+                            Toast.LENGTH_LONG
+                    ).show();
+                });
+    }
+
+    private void cargarTurnosDesdeFirestore() {
+        layoutTurnosDinamico.removeAllViews();
+
+        if (esAdmin) {
+            db.collection("turnos")
+                    .get()
+                    .addOnSuccessListener(queryDocumentSnapshots -> {
+                        int turnosMostrados = 0;
+
+                        for (QueryDocumentSnapshot documento : queryDocumentSnapshots) {
+                            String estado = obtenerString(documento, "estado", "reservado");
+
+                            if ("cancelado".equals(estado)) {
+                                continue;
+                            }
+
+                            agregarTarjetaDesdeDocumento(documento);
+                            turnosMostrados++;
+                        }
+
+                        actualizarEstadoVisual(turnosMostrados);
+                    })
+                    .addOnFailureListener(e -> mostrarErrorCarga());
+
+        } else {
+            db.collection("turnos")
+                    .whereEqualTo("usuarioId", uidUsuarioActual)
+                    .get()
+                    .addOnSuccessListener(queryDocumentSnapshots -> {
+                        int turnosMostrados = 0;
+
+                        for (QueryDocumentSnapshot documento : queryDocumentSnapshots) {
+                            String estado = obtenerString(documento, "estado", "reservado");
+
+                            if ("cancelado".equals(estado)) {
+                                continue;
+                            }
+
+                            agregarTarjetaDesdeDocumento(documento);
+                            turnosMostrados++;
+                        }
+
+                        actualizarEstadoVisual(turnosMostrados);
+                    })
+                    .addOnFailureListener(e -> mostrarErrorCarga());
         }
     }
 
-    /*
-     * Crea visualmente una tarjeta para un turno confirmado.
-     */
+    private void agregarTarjetaDesdeDocumento(QueryDocumentSnapshot documento) {
+        String documentoId = documento.getId();
+
+        String nombreCliente = obtenerString(
+                documento,
+                "nombreCliente",
+                "Cliente no informado"
+        );
+
+        String dniCliente = obtenerString(
+                documento,
+                "dniCliente",
+                "-"
+        );
+
+        String telefonoCliente = obtenerString(
+                documento,
+                "telefonoCliente",
+                "-"
+        );
+
+        String servicio = obtenerString(
+                documento,
+                "servicio",
+                ""
+        );
+
+        String precio = obtenerString(
+                documento,
+                "precio",
+                ""
+        );
+
+        String fecha = obtenerString(
+                documento,
+                "fecha",
+                ""
+        );
+
+        String horario = obtenerString(
+                documento,
+                "horario",
+                ""
+        );
+
+        String medioPago = obtenerString(
+                documento,
+                "medioPago",
+                "No informado"
+        );
+
+        agregarTarjetaTurno(
+                documentoId,
+                nombreCliente,
+                dniCliente,
+                telefonoCliente,
+                servicio,
+                precio,
+                fecha,
+                horario,
+                medioPago
+        );
+    }
+
     private void agregarTarjetaTurno(
+            String documentoId,
             String nombreCliente,
             String dniCliente,
             String telefonoCliente,
@@ -186,10 +250,8 @@ public class MisTurnosActivity extends AppCompatActivity {
             String precio,
             String fecha,
             String horario,
-            String medioPago,
-            int indiceTurno
+            String medioPago
     ) {
-        // Contenedor principal de la tarjeta.
         LinearLayout tarjetaTurno = new LinearLayout(this);
 
         tarjetaTurno.setOrientation(LinearLayout.VERTICAL);
@@ -205,7 +267,6 @@ public class MisTurnosActivity extends AppCompatActivity {
         parametrosTarjeta.setMargins(0, 0, 0, dp(18));
         tarjetaTurno.setLayoutParams(parametrosTarjeta);
 
-        // Nombre del servicio elegido.
         TextView txtServicio = new TextView(this);
 
         txtServicio.setText(servicio);
@@ -216,7 +277,6 @@ public class MisTurnosActivity extends AppCompatActivity {
                 android.graphics.Typeface.BOLD
         );
 
-        // Datos de la persona a la que pertenece el turno.
         TextView txtCliente = new TextView(this);
 
         txtCliente.setText(
@@ -240,7 +300,6 @@ public class MisTurnosActivity extends AppCompatActivity {
         parametrosCliente.setMargins(0, dp(12), 0, 0);
         txtCliente.setLayoutParams(parametrosCliente);
 
-        // Fecha y horario del turno.
         TextView txtFechaHorario = new TextView(this);
 
         txtFechaHorario.setText(
@@ -263,7 +322,6 @@ public class MisTurnosActivity extends AppCompatActivity {
         parametrosFecha.setMargins(0, dp(12), 0, 0);
         txtFechaHorario.setLayoutParams(parametrosFecha);
 
-        // Precio total del turno.
         TextView txtPrecio = new TextView(this);
 
         txtPrecio.setText(
@@ -289,10 +347,6 @@ public class MisTurnosActivity extends AppCompatActivity {
         parametrosPrecio.setMargins(0, dp(12), 0, 0);
         txtPrecio.setLayoutParams(parametrosPrecio);
 
-        /*
-         * Muestra el método elegido y deja claro que el pago
-         * todavía se realiza o confirma al asistir.
-         */
         TextView txtMedioPago = new TextView(this);
 
         txtMedioPago.setText(
@@ -314,7 +368,6 @@ public class MisTurnosActivity extends AppCompatActivity {
         parametrosMedioPago.setMargins(0, dp(12), 0, 0);
         txtMedioPago.setLayoutParams(parametrosMedioPago);
 
-        // Botón para cancelar solamente este turno.
         Button btnCancelarTurno = new Button(this);
 
         btnCancelarTurno.setText(R.string.boton_cancelar_turno);
@@ -331,23 +384,8 @@ public class MisTurnosActivity extends AppCompatActivity {
         parametrosBoton.setMargins(0, dp(18), 0, 0);
         btnCancelarTurno.setLayoutParams(parametrosBoton);
 
-        /*
-         * Elimina el turno seleccionado del almacenamiento
-         * y actualiza la lista de reservas.
-         */
-        btnCancelarTurno.setOnClickListener(v -> {
-            eliminarTurno(indiceTurno);
+        btnCancelarTurno.setOnClickListener(v -> cancelarTurno(documentoId));
 
-            Toast.makeText(
-                    MisTurnosActivity.this,
-                    "Turno cancelado correctamente.",
-                    Toast.LENGTH_SHORT
-            ).show();
-
-            cargarTurnosGuardados();
-        });
-
-        // Agrega los componentes dentro de la tarjeta.
         tarjetaTurno.addView(txtServicio);
         tarjetaTurno.addView(txtCliente);
         tarjetaTurno.addView(txtFechaHorario);
@@ -355,51 +393,66 @@ public class MisTurnosActivity extends AppCompatActivity {
         tarjetaTurno.addView(txtMedioPago);
         tarjetaTurno.addView(btnCancelarTurno);
 
-        // Agrega la tarjeta a la lista dinámica de turnos.
         layoutTurnosDinamico.addView(tarjetaTurno);
     }
 
-    /*
-     * Elimina un turno según su posición dentro del JSONArray guardado.
-     */
-    private void eliminarTurno(int indiceTurno) {
-        SharedPreferences preferencias = getSharedPreferences(
-                PREFS_NAME,
-                MODE_PRIVATE
-        );
+    private void cancelarTurno(String documentoId) {
+        db.collection("turnos")
+                .document(documentoId)
+                .update("estado", "cancelado")
+                .addOnSuccessListener(aVoid -> {
+                    Toast.makeText(
+                            MisTurnosActivity.this,
+                            "Turno cancelado correctamente.",
+                            Toast.LENGTH_SHORT
+                    ).show();
 
-        String turnosJson = preferencias.getString(
-                KEY_TURNOS,
-                "[]"
-        );
+                    cargarTurnosDesdeFirestore();
+                })
+                .addOnFailureListener(e -> {
+                    Toast.makeText(
+                            MisTurnosActivity.this,
+                            "No se pudo cancelar el turno.",
+                            Toast.LENGTH_LONG
+                    ).show();
+                });
+    }
 
-        try {
-            JSONArray listaTurnos = new JSONArray(turnosJson);
-
-            if (indiceTurno >= 0 && indiceTurno < listaTurnos.length()) {
-                listaTurnos.remove(indiceTurno);
-
-                preferencias.edit()
-                        .putString(
-                                KEY_TURNOS,
-                                listaTurnos.toString()
-                        )
-                        .apply();
-            }
-
-        } catch (JSONException e) {
-            Toast.makeText(
-                    this,
-                    "No se pudo cancelar el turno.",
-                    Toast.LENGTH_LONG
-            ).show();
+    private void actualizarEstadoVisual(int turnosMostrados) {
+        if (turnosMostrados == 0) {
+            layoutEstadoVacio.setVisibility(View.VISIBLE);
+            txtTituloListaTurnos.setVisibility(View.GONE);
+        } else {
+            layoutEstadoVacio.setVisibility(View.GONE);
+            txtTituloListaTurnos.setVisibility(View.VISIBLE);
         }
     }
 
-    /*
-     * Convierte dp a píxeles para que márgenes y padding
-     * se adapten a la densidad del dispositivo.
-     */
+    private void mostrarErrorCarga() {
+        layoutEstadoVacio.setVisibility(View.VISIBLE);
+        txtTituloListaTurnos.setVisibility(View.GONE);
+
+        Toast.makeText(
+                this,
+                "No se pudieron cargar los turnos.",
+                Toast.LENGTH_LONG
+        ).show();
+    }
+
+    private String obtenerString(
+            QueryDocumentSnapshot documento,
+            String campo,
+            String valorPorDefecto
+    ) {
+        String valor = documento.getString(campo);
+
+        if (valor == null || valor.isEmpty()) {
+            return valorPorDefecto;
+        }
+
+        return valor;
+    }
+
     private int dp(int cantidadDp) {
         float densidad = getResources()
                 .getDisplayMetrics()

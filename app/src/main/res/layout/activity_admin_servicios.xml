@@ -1,0 +1,245 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/barber_color_fondo">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="28dp">
+
+        <Button
+            android:id="@+id/btnVolverAdminServicios"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:backgroundTint="@color/barber_color_tarjeta"
+            android:text="← Volver al panel"
+            android:textAllCaps="false"
+            android:textColor="@color/barber_color_texto" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="28dp"
+            android:text="Gestión de servicios"
+            android:textAlignment="center"
+            android:textColor="@color/barber_color_dorado"
+            android:textSize="26sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:text="Editá los servicios actuales o agregá uno nuevo."
+            android:textAlignment="center"
+            android:textColor="@color/barber_color_texto_secundario"
+            android:textSize="15sp" />
+
+        <Button
+            android:id="@+id/btnAgregarServicioAdmin"
+            android:layout_width="match_parent"
+            android:layout_height="58dp"
+            android:layout_marginTop="28dp"
+            android:backgroundTint="@color/barber_color_dorado"
+            android:text="Agregar nuevo servicio"
+            android:textAllCaps="false"
+            android:textColor="@color/barber_color_fondo"
+            android:textSize="17sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="26dp"
+            android:text="Servicios actuales"
+            android:textColor="@color/barber_color_dorado"
+            android:textSize="18sp"
+            android:textStyle="bold" />
+
+        <!-- Servicio 1 -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="14dp"
+            android:background="@color/barber_color_tarjeta"
+            android:orientation="vertical"
+            android:padding="18dp">
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Corte"
+                android:textColor="@color/barber_color_texto"
+                android:textSize="18sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
+                android:text="Precio: $10.000"
+                android:textColor="@color/barber_color_dorado"
+                android:textSize="15sp" />
+
+            <Button
+                android:id="@+id/btnEditarCorte"
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:layout_marginTop="12dp"
+                android:backgroundTint="#444444"
+                android:text="Editar servicio"
+                android:textAllCaps="false"
+                android:textColor="@color/barber_color_texto" />
+        </LinearLayout>
+
+        <!-- Servicio 2 -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="14dp"
+            android:background="@color/barber_color_tarjeta"
+            android:orientation="vertical"
+            android:padding="18dp">
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Corte + Barba"
+                android:textColor="@color/barber_color_texto"
+                android:textSize="18sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
+                android:text="Precio: $14.000"
+                android:textColor="@color/barber_color_dorado"
+                android:textSize="15sp" />
+
+            <Button
+                android:id="@+id/btnEditarCorteBarba"
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:layout_marginTop="12dp"
+                android:backgroundTint="#444444"
+                android:text="Editar servicio"
+                android:textAllCaps="false"
+                android:textColor="@color/barber_color_texto" />
+        </LinearLayout>
+
+        <!-- Servicio 3 -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="14dp"
+            android:background="@color/barber_color_tarjeta"
+            android:orientation="vertical"
+            android:padding="18dp">
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Color"
+                android:textColor="@color/barber_color_texto"
+                android:textSize="18sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
+                android:text="Precio: $15.000"
+                android:textColor="@color/barber_color_dorado"
+                android:textSize="15sp" />
+
+            <Button
+                android:id="@+id/btnEditarColor"
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:layout_marginTop="12dp"
+                android:backgroundTint="#444444"
+                android:text="Editar servicio"
+                android:textAllCaps="false"
+                android:textColor="@color/barber_color_texto" />
+        </LinearLayout>
+
+        <!-- Servicio 4 -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="14dp"
+            android:background="@color/barber_color_tarjeta"
+            android:orientation="vertical"
+            android:padding="18dp">
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Corte + Color"
+                android:textColor="@color/barber_color_texto"
+                android:textSize="18sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
+                android:text="Precio: $22.000"
+                android:textColor="@color/barber_color_dorado"
+                android:textSize="15sp" />
+
+            <Button
+                android:id="@+id/btnEditarCorteColor"
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:layout_marginTop="12dp"
+                android:backgroundTint="#444444"
+                android:text="Editar servicio"
+                android:textAllCaps="false"
+                android:textColor="@color/barber_color_texto" />
+        </LinearLayout>
+
+        <!-- Servicio 5 -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="14dp"
+            android:layout_marginBottom="24dp"
+            android:background="@color/barber_color_tarjeta"
+            android:orientation="vertical"
+            android:padding="18dp">
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Corte + Barba + Color"
+                android:textColor="@color/barber_color_texto"
+                android:textSize="18sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
+                android:text="Precio: $25.000"
+                android:textColor="@color/barber_color_dorado"
+                android:textSize="15sp" />
+
+            <Button
+                android:id="@+id/btnEditarCompleto"
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:layout_marginTop="12dp"
+                android:backgroundTint="#444444"
+                android:text="Editar servicio"
+                android:textAllCaps="false"
+                android:textColor="@color/barber_color_texto" />
+        </LinearLayout>
+
+    </LinearLayout>
+
+</ScrollView>

@@ -1,7 +1,6 @@
 package com.example.barberia;
 
 import android.content.Intent;
-import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.widget.Button;
 import android.widget.RadioButton;
@@ -11,18 +10,18 @@ import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
 
-import org.json.JSONArray;
-import org.json.JSONException;
-import org.json.JSONObject;
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.firestore.FieldValue;
+import com.google.firebase.firestore.FirebaseFirestore;
+import com.google.firebase.firestore.QueryDocumentSnapshot;
+
+import java.util.HashMap;
+import java.util.Map;
 
 public class ResumenTurnoActivity extends AppCompatActivity {
 
-    /*
-     * Constantes utilizadas para guardar y recuperar los turnos
-     * desde SharedPreferences.
-     */
-    private static final String PREFS_NAME = "barberia_prefs";
-    private static final String KEY_TURNOS = "turnos_guardados";
+    private FirebaseAuth auth;
+    private FirebaseFirestore db;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -30,6 +29,9 @@ public class ResumenTurnoActivity extends AppCompatActivity {
 
         // Vincula esta activity con activity_resumen_turno.xml.
         setContentView(R.layout.activity_resumen_turno);
+
+        auth = FirebaseAuth.getInstance();
+        db = FirebaseFirestore.getInstance();
 
         // Referencias a los datos del cliente.
         TextView txtNombreClienteResumen =
@@ -61,10 +63,7 @@ public class ResumenTurnoActivity extends AppCompatActivity {
         Button btnConfirmarReserva =
                 findViewById(R.id.btnConfirmarReserva);
 
-        /*
-         * Grupo de opciones de pago.
-         * Este ID se agregará en activity_resumen_turno.xml.
-         */
+        // Grupo de opciones de pago.
         RadioGroup radioGroupMedioPago =
                 findViewById(R.id.radioGroupMedioPago);
 
@@ -154,14 +153,11 @@ public class ResumenTurnoActivity extends AppCompatActivity {
         btnVolverReserva.setOnClickListener(v -> finish());
 
         /*
-         * Valida el método de pago, guarda el turno completo
-         * y abre la pantalla Mis turnos.
+         * Valida el método de pago, verifica si el horario está libre
+         * y guarda el turno en Firestore.
          */
         btnConfirmarReserva.setOnClickListener(v -> {
 
-            /*
-             * Verifica que el usuario haya elegido una forma de pago.
-             */
             if (radioGroupMedioPago.getCheckedRadioButtonId() == -1) {
                 Toast.makeText(
                         ResumenTurnoActivity.this,
@@ -172,10 +168,6 @@ public class ResumenTurnoActivity extends AppCompatActivity {
                 return;
             }
 
-            /*
-             * Obtiene el texto de la opción elegida:
-             * Efectivo, Transferencia o Mercado Pago.
-             */
             RadioButton radioPagoSeleccionado = findViewById(
                     radioGroupMedioPago.getCheckedRadioButtonId()
             );
@@ -184,7 +176,14 @@ public class ResumenTurnoActivity extends AppCompatActivity {
                     .getText()
                     .toString();
 
-            boolean turnoGuardado = guardarTurno(
+            /*
+             * Evita que el usuario toque varias veces confirmar
+             * mientras Firebase está procesando.
+             */
+            btnConfirmarReserva.setEnabled(false);
+            btnConfirmarReserva.setText("Guardando...");
+
+            guardarTurnoEnFirestore(
                     nombreFinal,
                     dniFinal,
                     telefonoFinal,
@@ -192,34 +191,18 @@ public class ResumenTurnoActivity extends AppCompatActivity {
                     precioFinal,
                     fechaFinal,
                     horarioFinal,
-                    medioPago
+                    medioPago,
+                    btnConfirmarReserva
             );
-
-            if (turnoGuardado) {
-                Toast.makeText(
-                        ResumenTurnoActivity.this,
-                        getString(R.string.mensaje_turno_confirmado),
-                        Toast.LENGTH_SHORT
-                ).show();
-
-                Intent intentMisTurnos = new Intent(
-                        ResumenTurnoActivity.this,
-                        MisTurnosActivity.class
-                );
-
-                startActivity(intentMisTurnos);
-
-                // Evita volver al resumen después de confirmar.
-                finish();
-            }
         });
     }
 
     /*
-     * Guarda un turno completo dentro de SharedPreferences.
-     * Incluye cliente, reserva y método de pago.
+     * Guarda un turno en Firestore.
+     * Antes de guardar, verifica que no exista otro turno reservado
+     * con la misma fecha y horario.
      */
-    private boolean guardarTurno(
+    private void guardarTurnoEnFirestore(
             String nombreCliente,
             String dniCliente,
             String telefonoCliente,
@@ -227,55 +210,126 @@ public class ResumenTurnoActivity extends AppCompatActivity {
             String precio,
             String fecha,
             String horario,
-            String medioPago
+            String medioPago,
+            Button btnConfirmarReserva
     ) {
-        SharedPreferences preferencias = getSharedPreferences(
-                PREFS_NAME,
-                MODE_PRIVATE
-        );
-
-        String turnosJson = preferencias.getString(
-                KEY_TURNOS,
-                "[]"
-        );
-
-        try {
-            // Recupera la lista existente de turnos.
-            JSONArray listaTurnos = new JSONArray(turnosJson);
-
-            // Crea el nuevo turno.
-            JSONObject nuevoTurno = new JSONObject();
-
-            nuevoTurno.put("nombreCliente", nombreCliente);
-            nuevoTurno.put("dniCliente", dniCliente);
-            nuevoTurno.put("telefonoCliente", telefonoCliente);
-
-            nuevoTurno.put("servicio", servicio);
-            nuevoTurno.put("precio", precio);
-            nuevoTurno.put("fecha", fecha);
-            nuevoTurno.put("horario", horario);
-
-            // Guarda también el método de pago seleccionado.
-            nuevoTurno.put("medioPago", medioPago);
-
-            // Agrega el turno sin borrar los anteriores.
-            listaTurnos.put(nuevoTurno);
-
-            // Guarda la lista actualizada localmente.
-            preferencias.edit()
-                    .putString(KEY_TURNOS, listaTurnos.toString())
-                    .apply();
-
-            return true;
-
-        } catch (JSONException e) {
+        if (auth.getCurrentUser() == null) {
             Toast.makeText(
                     this,
-                    "No se pudo guardar el turno. Intentá nuevamente.",
+                    "Tenés que iniciar sesión para reservar un turno.",
                     Toast.LENGTH_LONG
             ).show();
 
-            return false;
+            Intent intentLogin = new Intent(
+                    ResumenTurnoActivity.this,
+                    LoginActivity.class
+            );
+
+            startActivity(intentLogin);
+            finish();
+
+            return;
         }
+
+        String usuarioId = auth.getCurrentUser().getUid();
+
+        /*
+         * Primero busca turnos de la misma fecha.
+         * Después compara horario y estado.
+         * Si encuentra uno reservado con ese horario, no permite guardar.
+         */
+        db.collection("turnos")
+                .whereEqualTo("fecha", fecha)
+                .get()
+                .addOnSuccessListener(queryDocumentSnapshots -> {
+
+                    boolean horarioOcupado = false;
+
+                    for (QueryDocumentSnapshot documento : queryDocumentSnapshots) {
+                        String horarioExistente = documento.getString("horario");
+                        String estadoExistente = documento.getString("estado");
+
+                        if (horario.equals(horarioExistente)
+                                && "reservado".equals(estadoExistente)) {
+                            horarioOcupado = true;
+                            break;
+                        }
+                    }
+
+                    if (horarioOcupado) {
+                        Toast.makeText(
+                                ResumenTurnoActivity.this,
+                                "Ese horario ya está reservado. Volvé a elegir otro.",
+                                Toast.LENGTH_LONG
+                        ).show();
+
+                        btnConfirmarReserva.setEnabled(true);
+                        btnConfirmarReserva.setText("Confirmar reserva");
+
+                        /*
+                         * Vuelve automáticamente a la pantalla anterior
+                         * para que el cliente pueda elegir otra fecha u horario.
+                         */
+                        btnConfirmarReserva.postDelayed(() -> {
+                            finish();
+                        }, 1800);
+
+                        return;
+                    }
+
+                    Map<String, Object> nuevoTurno = new HashMap<>();
+
+                    nuevoTurno.put("usuarioId", usuarioId);
+                    nuevoTurno.put("nombreCliente", nombreCliente);
+                    nuevoTurno.put("dniCliente", dniCliente);
+                    nuevoTurno.put("telefonoCliente", telefonoCliente);
+
+                    nuevoTurno.put("servicio", servicio);
+                    nuevoTurno.put("precio", precio);
+                    nuevoTurno.put("fecha", fecha);
+                    nuevoTurno.put("horario", horario);
+
+                    nuevoTurno.put("medioPago", medioPago);
+                    nuevoTurno.put("estado", "reservado");
+                    nuevoTurno.put("fechaCreacion", FieldValue.serverTimestamp());
+
+                    db.collection("turnos")
+                            .add(nuevoTurno)
+                            .addOnSuccessListener(documentReference -> {
+                                Toast.makeText(
+                                        ResumenTurnoActivity.this,
+                                        getString(R.string.mensaje_turno_confirmado),
+                                        Toast.LENGTH_SHORT
+                                ).show();
+
+                                Intent intentMisTurnos = new Intent(
+                                        ResumenTurnoActivity.this,
+                                        MisTurnosActivity.class
+                                );
+
+                                startActivity(intentMisTurnos);
+                                finish();
+                            })
+                            .addOnFailureListener(e -> {
+                                Toast.makeText(
+                                        ResumenTurnoActivity.this,
+                                        "No se pudo guardar el turno en Firebase.",
+                                        Toast.LENGTH_LONG
+                                ).show();
+
+                                btnConfirmarReserva.setEnabled(true);
+                                btnConfirmarReserva.setText("Confirmar reserva");
+                            });
+                })
+                .addOnFailureListener(e -> {
+                    Toast.makeText(
+                            ResumenTurnoActivity.this,
+                            "No se pudo verificar si el horario estaba disponible.",
+                            Toast.LENGTH_LONG
+                    ).show();
+
+                    btnConfirmarReserva.setEnabled(true);
+                    btnConfirmarReserva.setText("Confirmar reserva");
+                });
     }
 }

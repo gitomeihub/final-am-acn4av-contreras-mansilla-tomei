@@ -8,45 +8,44 @@ import androidx.appcompat.app.AppCompatActivity;
 
 import com.google.firebase.auth.FirebaseAuth;
 
-public class InicioActivity extends AppCompatActivity {
+public class AdminActivity extends AppCompatActivity {
 
-    private Button btnReservarDesdeInicio;
-    private Button btnMisTurnos;
-    private Button btnCerrarSesion;
+    private Button btnAdminTurnos;
+    private Button btnAdminServicios;
+    private Button btnCerrarSesionAdmin;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_admin);
 
-        setContentView(R.layout.activity_inicio);
+        btnAdminTurnos = findViewById(R.id.btnAdminTurnos);
+        btnAdminServicios = findViewById(R.id.btnAdminServicios);
+        btnCerrarSesionAdmin = findViewById(R.id.btnCerrarSesionAdmin);
 
-        btnReservarDesdeInicio = findViewById(R.id.btnReservarDesdeInicio);
-        btnMisTurnos = findViewById(R.id.btnMisTurnos);
-        btnCerrarSesion = findViewById(R.id.btnCerrarSesion);
-
-        btnReservarDesdeInicio.setOnClickListener(view -> {
+        btnAdminTurnos.setOnClickListener(view -> {
             Intent intent = new Intent(
-                    InicioActivity.this,
-                    DatosClienteActivity.class
+                    AdminActivity.this,
+                    AdminTurnosActivity.class
             );
 
             startActivity(intent);
         });
 
-        btnMisTurnos.setOnClickListener(view -> {
+        btnAdminServicios.setOnClickListener(view -> {
             Intent intent = new Intent(
-                    InicioActivity.this,
-                    MisTurnosActivity.class
+                    AdminActivity.this,
+                    AdminServiciosActivity.class
             );
 
             startActivity(intent);
         });
 
-        btnCerrarSesion.setOnClickListener(view -> {
+        btnCerrarSesionAdmin.setOnClickListener(view -> {
             FirebaseAuth.getInstance().signOut();
 
             Intent intent = new Intent(
-                    InicioActivity.this,
+                    AdminActivity.this,
                     LoginActivity.class
             );
 
